@@ -43,7 +43,7 @@ int main() {
     rapidjson::StringStream ss{
         R"( { "id": 1, "content": { "id": 2, "text": "Hello World" } } )"
     };
-    reader.Parse<rapidjson::kParseNumbersAsStringsFlag>(ss, handler);
+    reader.Parse(ss, handler);
     assert(!reader.HasParseError());
     std::cout << js_obj.get<_id>().uint64 << std::endl;
     std::cout << js_obj.get<_content>().get<_id>().uint64 << std::endl;
