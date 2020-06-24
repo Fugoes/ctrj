@@ -27,6 +27,11 @@ struct value_type_of<uint64_t> {
 };
 
 template<>
+struct value_type_of<std::string> {
+  std::string string{};
+};
+
+template<>
 struct value_type_of<object<>> {
 };
 
@@ -61,6 +66,11 @@ struct lift_value_type<value_type_of<uint64_t>> {
   typedef value_type_of<uint64_t> type;
 };
 
+template<>
+struct lift_value_type<value_type_of<std::string>> {
+  typedef value_type_of<std::string> type;
+};
+
 template<class ... FIELDS>
 struct lift_value_type<value_type_of<object<FIELDS ...>>> {
   typedef value<object<FIELDS ...>> type;
@@ -81,6 +91,7 @@ struct value : public value_type_of<SCHEMA> {
 struct handler_base {
   virtual bool Key(std::string_view str, handler_base **h) = 0;
   virtual bool Number(std::string_view str, handler_base **h) = 0;
+  virtual bool String(std::string_view str, handler_base **h) = 0;
   virtual bool StartObject(handler_base **h) = 0;
   virtual bool EndObject(handler_base **h) = 0;
 };
@@ -97,6 +108,7 @@ struct partial_handler<> {
 
   inline bool Key(std::string_view key, handler_base **h) { return false; }
   inline bool Number(std::string_view num, handler_base **h) { return false; }
+  inline bool String(std::string_view str, handler_base **h) { return false; }
   inline bool EndObject(handler_base **h) { return true; }
 };
 
@@ -108,9 +120,28 @@ struct complete_handler<uint64_t> : public handler_base {
   explicit complete_handler(value_type_of<uint64_t> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override { return false; }
-  bool Number(std::string_view str, handler_base **h) override {
+  bool Number(std::string_view num, handler_base **h) override {
     *h = parent_;
-    ref_.uint64 = std::stoull(std::string(str));
+    ref_.uint64 = std::stoull(std::string(num));
+    return true;
+  }
+  bool String(std::string_view str, handler_base **h) { return false; }
+  bool StartObject(handler_base **h) override { return false; }
+  bool EndObject(handler_base **h) override { return false; }
+};
+
+template<>
+struct complete_handler<std::string> : public handler_base {
+  handler_base *parent_{nullptr};
+  value_type_of<std::string> &ref_;
+
+  explicit complete_handler(value_type_of<std::string> &ref) : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override { return false; }
+  bool Number(std::string_view str, handler_base **h) override { return false; }
+  bool String(std::string_view str, handler_base **h) override {
+    *h = parent_;
+    ref_.string = str;
     return true;
   }
   bool StartObject(handler_base **h) override { return false; }
@@ -131,6 +162,9 @@ struct complete_handler<object<FIELDS ...>> : public handler_base {
   }
   bool Number(std::string_view str, handler_base **h) override {
     return inner_.Number(str, h);
+  }
+  bool String(std::string_view str, handler_base **h) override {
+    return inner_.String(str, h);
   }
   bool StartObject(handler_base **h) override {
     if (state_ == 0) {
@@ -181,6 +215,7 @@ struct partial_handler<field<K, V>, FIELDS ...> :
     }
   }
   inline bool Number(std::string_view num, handler_base **h) { return false; }
+  inline bool String(std::string_view str, handler_base **h) { return false; }
   inline bool EndObject(handler_base **h) {
     return state_ == 1 && partial_handler<FIELDS ...>::EndObject(h);
   }
@@ -217,9 +252,6 @@ struct handler :
   bool Double(double d) {
     return false;
   }
-  bool String(const char *str, rapidjson::SizeType length, bool copy) {
-    return false;
-  }
   bool StartArray() {
     return false;
   }
@@ -232,6 +264,9 @@ struct handler :
   }
   bool RawNumber(const char *str, rapidjson::SizeType length, bool copy) {
     return h_->Number(std::string_view(str, length), &h_);
+  }
+  bool String(const char *str, rapidjson::SizeType length, bool copy) {
+    return h_->String(std::string_view(str, length), &h_);
   }
   bool StartObject() {
     return h_->StartObject(&h_);
