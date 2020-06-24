@@ -19,105 +19,64 @@ struct object {};
 
 /* Value type */
 template<class SCHEMA>
-struct value_type_of;
+struct value;
 
 template<>
-struct value_type_of<uint64_t> {
+struct value<uint64_t> {
   uint64_t u64{};
 };
 
 static_assert(sizeof(unsigned) < sizeof(uint64_t));
 
 template<>
-struct value_type_of<unsigned> {
+struct value<unsigned> {
   unsigned u{};
 };
 
 template<>
-struct value_type_of<int64_t> {
+struct value<int64_t> {
   int64_t i64{};
 };
 
 static_assert(sizeof(int) < sizeof(int64_t));
 
 template<>
-struct value_type_of<int> {
+struct value<int> {
   int i{};
 };
 
 template<>
-struct value_type_of<std::string> {
+struct value<std::string> {
   std::string str{};
 };
 
 template<>
-struct value_type_of<object<>> {
-};
-
-template<const char *K, class V, class ... FIELDS>
-struct value_type_of<object<field<K, V>, FIELDS ...>> :
-    public value_type_of<object<FIELDS ...>> {
-  value_type_of<V> value_{};
+struct value<object<>> {
 };
 
 template<const char *K, class SCHEMA>
-struct value_type_of_field;
+struct partial_type_of;
 
 template<const char *K, class V, class ... FIELDS>
-struct value_type_of_field<K, object<field<K, V>, FIELDS ...>> {
-  typedef value_type_of<object<field<K, V>, FIELDS ...>> type;
-  typedef value_type_of<V> rtype;
+struct partial_type_of<K, object<field<K, V>, FIELDS ...>> {
+  typedef object<field<K, V>, FIELDS ...> type;
 };
 
 template<const char *K, const char *X, class V, class ... FIELDS>
-struct value_type_of_field<K, object<field<X, V>, FIELDS ...>> :
-    public value_type_of_field<K, object<FIELDS ...>> {
+struct partial_type_of<K, object<field<X, V>, FIELDS ...>> :
+    public partial_type_of<K, object<FIELDS ...>> {
 };
 
-template<class SCHEMA>
-struct value;
+template<const char *K, class V, class ... FIELDS>
+struct value<object<field<K, V>, FIELDS ...>> :
+    public value<object<FIELDS ...>> {
+  value<V> value_{};
 
-template<class SCHEMA>
-struct lift_value_type;
-
-template<>
-struct lift_value_type<value_type_of<uint64_t>> {
-  typedef value_type_of<uint64_t> type;
-};
-
-template<>
-struct lift_value_type<value_type_of<unsigned>> {
-  typedef value_type_of<unsigned> type;
-};
-
-template<>
-struct lift_value_type<value_type_of<int64_t>> {
-  typedef value_type_of<int64_t> type;
-};
-
-template<>
-struct lift_value_type<value_type_of<int>> {
-  typedef value_type_of<int> type;
-};
-
-template<>
-struct lift_value_type<value_type_of<std::string>> {
-  typedef value_type_of<std::string> type;
-};
-
-template<class ... FIELDS>
-struct lift_value_type<value_type_of<object<FIELDS ...>>> {
-  typedef value<object<FIELDS ...>> type;
-};
-
-template<class SCHEMA>
-struct value : public value_type_of<SCHEMA> {
-  template<const char *K>
+  template<const char *N>
   auto &get() {
-    using field_type = value_type_of_field<K, SCHEMA>;
-    using rtype = typename lift_value_type<typename field_type::rtype>::type;
-    auto &r = static_cast<typename field_type::type &>(*this).value_;
-    return static_cast<rtype &>(r);
+    return value<
+        typename partial_type_of<N, object<field<K, V>, FIELDS ...>>::type
+    >::value_;
   }
 };
 
@@ -141,7 +100,7 @@ struct complete_handler;
 
 template<>
 struct partial_handler<> {
-  explicit partial_handler(value_type_of<object<>> &) {}
+  explicit partial_handler(value<object<>> &) {}
 
   inline bool Key(std::string_view key, handler_base **h) { return false; }
   inline bool Int(int num, handler_base **h) { return false; }
@@ -155,9 +114,9 @@ struct partial_handler<> {
 template<>
 struct complete_handler<uint64_t> : public handler_base {
   handler_base *parent_{nullptr};
-  value_type_of<uint64_t> &ref_;
+  value<uint64_t> &ref_;
 
-  explicit complete_handler(value_type_of<uint64_t> &ref) : ref_(ref) {}
+  explicit complete_handler(value<uint64_t> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
     return false;
@@ -186,9 +145,9 @@ struct complete_handler<uint64_t> : public handler_base {
 template<>
 struct complete_handler<unsigned> : public handler_base {
   handler_base *parent_{nullptr};
-  value_type_of<unsigned> &ref_;
+  value<unsigned> &ref_;
 
-  explicit complete_handler(value_type_of<unsigned> &ref) : ref_(ref) {}
+  explicit complete_handler(value<unsigned> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
     return false;
@@ -215,9 +174,9 @@ struct complete_handler<unsigned> : public handler_base {
 template<>
 struct complete_handler<int64_t> : public handler_base {
   handler_base *parent_{nullptr};
-  value_type_of<int64_t> &ref_;
+  value<int64_t> &ref_;
 
-  explicit complete_handler(value_type_of<int64_t> &ref) : ref_(ref) {}
+  explicit complete_handler(value<int64_t> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
     return false;
@@ -254,9 +213,9 @@ struct complete_handler<int64_t> : public handler_base {
 template<>
 struct complete_handler<int> : public handler_base {
   handler_base *parent_{nullptr};
-  value_type_of<int> &ref_;
+  value<int> &ref_;
 
-  explicit complete_handler(value_type_of<int> &ref) : ref_(ref) {}
+  explicit complete_handler(value<int> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
     return false;
@@ -289,9 +248,9 @@ struct complete_handler<int> : public handler_base {
 template<>
 struct complete_handler<std::string> : public handler_base {
   handler_base *parent_{nullptr};
-  value_type_of<std::string> &ref_;
+  value<std::string> &ref_;
 
-  explicit complete_handler(value_type_of<std::string> &ref) : ref_(ref) {}
+  explicit complete_handler(value<std::string> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
     return false;
@@ -315,7 +274,7 @@ struct complete_handler<object<FIELDS ...>> : public handler_base {
   uint8_t state_{0};
   partial_handler<FIELDS ...> inner_;
 
-  explicit complete_handler(value_type_of<object<FIELDS ...>> &ref)
+  explicit complete_handler(value<object<FIELDS ...>> &ref)
       : inner_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
@@ -364,9 +323,9 @@ struct partial_handler<field<K, V>, FIELDS ...> :
   uint8_t state_{0};
   complete_handler<V> sub_handler_;
 
-  partial_handler(value_type_of<object<field<K, V>, FIELDS ...>> &ref)
+  partial_handler(value<object<field<K, V>, FIELDS ...>> &ref)
       : partial_handler<FIELDS ...>
-            (static_cast<value_type_of<object<FIELDS ...>> &>(ref)),
+            (static_cast<value<object<FIELDS ...>> &>(ref)),
         sub_handler_(ref.value_) {
   }
 
@@ -393,14 +352,15 @@ struct partial_handler<field<K, V>, FIELDS ...> :
     return state_ == 1 && partial_handler<FIELDS ...>::EndObject(h);
   }
 };
+
 template<class SCHEMA>
 struct handler :
     public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, handler<SCHEMA>> {
   handler_base *h_{nullptr};
   complete_handler<SCHEMA> inner_;
 
-  explicit handler(value<SCHEMA> &value) :
-      inner_(static_cast<value_type_of<SCHEMA> &>(value)) {
+  explicit handler(value<SCHEMA> &v) :
+      inner_(static_cast<value<SCHEMA> &>(v)) {
     h_ = &inner_;
   }
 
