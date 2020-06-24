@@ -51,7 +51,7 @@ struct value_type_of_field<K, object<field<X, V>, KVS ...>> :
 template<class OBJECT>
 struct value;
 
-template<class KV_LIST>
+template<class OBJECT>
 struct lift_value_type;
 
 template<>
@@ -64,11 +64,11 @@ struct lift_value_type<value_type_of<object<KVS ...>>> {
   typedef value<object<KVS ...>> type;
 };
 
-template<class ... KVS>
-struct value<object<KVS ...>> : public value_type_of<object<KVS ...>> {
+template<class OBJECT>
+struct value : public value_type_of<OBJECT> {
   template<const char *K>
   auto &get() {
-    using field_type = value_type_of_field<K, object<KVS ...>>;
+    using field_type = value_type_of_field<K, OBJECT>;
     using rtype = typename lift_value_type<typename field_type::rtype>::type;
     auto &r = static_cast<typename field_type::type &>(*this).value_;
     return static_cast<rtype &>(r);

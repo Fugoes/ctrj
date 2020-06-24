@@ -22,5 +22,6 @@ using js_obj_schema = x::object<
 int main() {
   x::value<js_obj_schema> js_obj{};
   js_obj.get<_id>().uint64 = 2;
+  std::cout << js_obj.get<_text>().get<_id>().uint64 << std::endl;
   return 0;
 }
