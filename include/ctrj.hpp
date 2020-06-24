@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "rapidjson/reader.h"
+#include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
 namespace ctrj::ctrj_detail {
@@ -687,6 +688,155 @@ struct handler :
   }
 };
 
+template<class SCHEMA>
+struct write;
+
+template<class ... FIELDS>
+struct partial_write {};
+
+template<>
+struct write<uint64_t> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<uint64_t> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.Uint64(v.u64);
+  }
+};
+
+template<>
+struct write<int64_t> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<int64_t> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.Int64(v.i64);
+  }
+};
+
+template<>
+struct write<unsigned> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<unsigned> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.Uint(v.u);
+  }
+};
+
+template<>
+struct write<int> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<int> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.Uint(v.i);
+  }
+};
+
+template<>
+struct write<std::string> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<std::string> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.String(v.str.data(), v.str.length());
+  }
+};
+
+template<>
+struct write<partial_write<>> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<object<>> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+  }
+};
+
+template<const char *K, class V, class ... FIELDS>
+struct write<partial_write<field<K, V>, FIELDS ...>> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<object<field<K, V>, FIELDS ...>> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.Key(K);
+    write<V>::template to<OutputStream>(v.template get<K>(), w);
+    write<partial_write<FIELDS ...>>::to(
+        static_cast<value<object<FIELDS ...>> &>(v), w);
+  }
+};
+
+template<class ... FIELDS>
+struct write<object<FIELDS ...>> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<object<FIELDS ...>> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.StartObject();
+    write<partial_write<FIELDS ...>>::to(v, w);
+    w.EndObject();
+  }
+};
+
+template<class T>
+struct write<nullable<T>> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<nullable<T>> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    if (!v.opt.has_value()) {
+      w.Null();
+    } else {
+      write<T>::to(v.opt.value(), w);
+    }
+  }
+};
+
 }
 
 namespace ctrj {
@@ -705,6 +855,9 @@ using handler = ctrj_detail::handler<SCHEMA>;
 
 template<class SCHEMA>
 using value = ctrj_detail::value<SCHEMA>;
+
+template<class T>
+using write = ctrj_detail::write<T>;
 
 }
 
