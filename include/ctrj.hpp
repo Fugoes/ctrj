@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <climits>
 #include <string>
+#include <optional>
 
 #include "rapidjson/reader.h"
 #include "rapidjson/stringbuffer.h"
@@ -16,6 +17,9 @@ struct field {};
 
 template<class ... FIELDS>
 struct object {};
+
+template<class T>
+struct nullable {};
 
 /* Value type */
 template<class SCHEMA>
@@ -80,9 +84,15 @@ struct value<object<field<K, V>, FIELDS ...>> :
   }
 };
 
+template<class T>
+struct value<nullable<T>> {
+  std::optional<value<T>> opt{};
+};
+
 /* Handler */
 struct handler_base {
   virtual bool Key(std::string_view str, handler_base **h) = 0;
+  virtual bool Null(handler_base **h) = 0;
   virtual bool Int(int num, handler_base **h) = 0;
   virtual bool Uint(unsigned num, handler_base **h) = 0;
   virtual bool Int64(int64_t num, handler_base **h) = 0;
@@ -103,6 +113,7 @@ struct partial_handler<> {
   explicit partial_handler(value<object<>> &) {}
 
   inline bool Key(std::string_view key, handler_base **h) { return false; }
+  inline bool Null(handler_base **h) { return false; }
   inline bool Int(int num, handler_base **h) { return false; }
   inline bool Uint(unsigned num, handler_base **h) { return false; }
   inline bool Int64(int64_t num, handler_base **h) { return false; }
@@ -121,23 +132,26 @@ struct complete_handler<uint64_t> : public handler_base {
   bool Key(std::string_view str, handler_base **h) override {
     return false;
   }
-  bool Int(int num, handler_base **h) {
+  bool Null(handler_base **h) override {
     return false;
   }
-  bool Uint(unsigned num, handler_base **h) {
+  bool Int(int num, handler_base **h) override {
+    return false;
+  }
+  bool Uint(unsigned num, handler_base **h) override {
     *h = parent_;
     ref_.u64 = num;
     return true;
   }
-  bool Int64(int64_t num, handler_base **h) {
+  bool Int64(int64_t num, handler_base **h) override {
     return false;
   }
-  bool Uint64(uint64_t num, handler_base **h) {
+  bool Uint64(uint64_t num, handler_base **h) override {
     *h = parent_;
     ref_.u64 = num;
     return true;
   }
-  bool String(std::string_view str, handler_base **h) { return false; }
+  bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
 };
@@ -152,21 +166,24 @@ struct complete_handler<unsigned> : public handler_base {
   bool Key(std::string_view str, handler_base **h) override {
     return false;
   }
-  bool Int(int num, handler_base **h) {
+  bool Null(handler_base **h) override {
     return false;
   }
-  bool Uint(unsigned num, handler_base **h) {
+  bool Int(int num, handler_base **h) override {
+    return false;
+  }
+  bool Uint(unsigned num, handler_base **h) override {
     *h = parent_;
     ref_.u = num;
     return true;
   }
-  bool Int64(int64_t num, handler_base **h) {
+  bool Int64(int64_t num, handler_base **h) override {
     return false;
   }
-  bool Uint64(uint64_t num, handler_base **h) {
+  bool Uint64(uint64_t num, handler_base **h) override {
     return false;
   }
-  bool String(std::string_view str, handler_base **h) { return false; }
+  bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
 };
@@ -181,22 +198,25 @@ struct complete_handler<int64_t> : public handler_base {
   bool Key(std::string_view str, handler_base **h) override {
     return false;
   }
-  bool Int(int num, handler_base **h) {
+  bool Null(handler_base **h) override {
+    return false;
+  }
+  bool Int(int num, handler_base **h) override {
     *h = parent_;
     ref_.i64 = num;
     return true;
   }
-  bool Uint(unsigned num, handler_base **h) {
+  bool Uint(unsigned num, handler_base **h) override {
     *h = parent_;
     ref_.i64 = num;
     return true;
   }
-  bool Int64(int64_t num, handler_base **h) {
+  bool Int64(int64_t num, handler_base **h) override {
     *h = parent_;
     ref_.i64 = num;
     return true;
   }
-  bool Uint64(uint64_t num, handler_base **h) {
+  bool Uint64(uint64_t num, handler_base **h) override {
     if (num <= INT64_MAX) {
       *h = parent_;
       ref_.i64 = num;
@@ -205,7 +225,7 @@ struct complete_handler<int64_t> : public handler_base {
       return false;
     }
   }
-  bool String(std::string_view str, handler_base **h) { return false; }
+  bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
 };
@@ -220,27 +240,30 @@ struct complete_handler<int> : public handler_base {
   bool Key(std::string_view str, handler_base **h) override {
     return false;
   }
-  bool Int(int num, handler_base **h) {
+  bool Null(handler_base **h) override {
+    return false;
+  }
+  bool Int(int num, handler_base **h) override {
     *h = parent_;
     ref_.i = num;
     return true;
   }
-  bool Uint(unsigned num, handler_base **h) {
+  bool Uint(unsigned num, handler_base **h) override {
     if (num <= INT_MAX) {
       *h = parent_;
-      ref_.i = num;
+      ref_.i = (int) num;
       return true;
     } else {
       return false;
     }
   }
-  bool Int64(int64_t num, handler_base **h) {
+  bool Int64(int64_t num, handler_base **h) override {
     return false;
   }
-  bool Uint64(uint64_t num, handler_base **h) {
+  bool Uint64(uint64_t num, handler_base **h) override {
     return false;
   }
-  bool String(std::string_view str, handler_base **h) { return false; }
+  bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
 };
@@ -253,6 +276,9 @@ struct complete_handler<std::string> : public handler_base {
   explicit complete_handler(value<std::string> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
+    return false;
+  }
+  bool Null(handler_base **h) override {
     return false;
   }
   bool Int(int num, handler_base **h) override { return false; }
@@ -269,6 +295,65 @@ struct complete_handler<std::string> : public handler_base {
 };
 
 template<class ... FIELDS>
+struct complete_handler<nullable<object<FIELDS ...>>> : public handler_base {
+  handler_base *parent_{nullptr};
+  value<nullable<object<FIELDS ...>>> &ref_;
+  std::optional<partial_handler<FIELDS ...>> inner_{};
+
+  explicit complete_handler(value<nullable<object<FIELDS ...>>> &ref)
+      : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override {
+    return inner_.value().Key(str, h);
+  }
+  bool Null(handler_base **h) override {
+    if (!inner_.has_value()) {
+      *h = parent_;
+      ref_.opt.reset();
+      return true;
+    } else {
+      return false;
+    }
+  }
+  bool Int(int num, handler_base **h) override {
+    return inner_.value().Int(num, h);
+  }
+  bool Uint(unsigned num, handler_base **h) override {
+    return inner_.value().Uint(num, h);
+  }
+  bool Int64(int64_t num, handler_base **h) override {
+    return inner_.value().Int64(num, h);
+  }
+  bool Uint64(uint64_t num, handler_base **h) override {
+    return inner_.value().Uint64(num, h);
+  }
+  bool String(std::string_view str, handler_base **h) override {
+    return inner_.value().String(str, h);
+  }
+  bool StartObject(handler_base **h) override {
+    if (!inner_.has_value()) {
+      ref_.opt.emplace(value<object<FIELDS ...>>{});
+      inner_.emplace(partial_handler<FIELDS ...>{ref_.opt.value()});
+      return true;
+    } else {
+      return false;
+    }
+  }
+  bool EndObject(handler_base **h) override {
+    if (inner_.has_value()) {
+      if (inner_.value().EndObject(h)) {
+        *h = parent_;
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+};
+
+template<class ... FIELDS>
 struct complete_handler<object<FIELDS ...>> : public handler_base {
   handler_base *parent_{nullptr};
   uint8_t state_{0};
@@ -279,6 +364,9 @@ struct complete_handler<object<FIELDS ...>> : public handler_base {
 
   bool Key(std::string_view str, handler_base **h) override {
     return inner_.Key(str, h);
+  }
+  bool Null(handler_base **h) override {
+    return false;
   }
   bool Int(int num, handler_base **h) override {
     return inner_.Int(num, h);
@@ -343,6 +431,7 @@ struct partial_handler<field<K, V>, FIELDS ...> :
       return partial_handler<FIELDS ...>::Key(key, h);
     }
   }
+  inline bool Null(handler_base **h) { return false; }
   inline bool Int(int num, handler_base **h) { return false; }
   inline bool Uint(unsigned num, handler_base **h) { return false; }
   inline bool Int64(int64_t num, handler_base **h) { return false; }
@@ -351,6 +440,195 @@ struct partial_handler<field<K, V>, FIELDS ...> :
   inline bool EndObject(handler_base **h) {
     return state_ == 1 && partial_handler<FIELDS ...>::EndObject(h);
   }
+};
+
+template<>
+struct complete_handler<nullable<uint64_t>> : public handler_base {
+  handler_base *parent_{nullptr};
+  value<nullable<uint64_t>> &ref_;
+
+  explicit complete_handler(value<nullable<uint64_t>> &ref) : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override {
+    return false;
+  }
+  bool Null(handler_base **h) override {
+    *h = parent_;
+    ref_.opt.reset();
+    return true;
+  }
+  bool Int(int num, handler_base **h) override {
+    return false;
+  }
+  bool Uint(unsigned num, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<uint64_t>{});
+    ref_.opt.value().u64 = num;
+    return true;
+  }
+  bool Int64(int64_t num, handler_base **h) override {
+    return false;
+  }
+  bool Uint64(uint64_t num, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<uint64_t>{});
+    ref_.opt.value().u64 = num;
+    return true;
+  }
+  bool String(std::string_view str, handler_base **h) override { return false; }
+  bool StartObject(handler_base **h) override { return false; }
+  bool EndObject(handler_base **h) override { return false; }
+};
+
+template<>
+struct complete_handler<nullable<unsigned>> : public handler_base {
+  handler_base *parent_{nullptr};
+  value<nullable<unsigned>> &ref_;
+
+  explicit complete_handler(value<nullable<unsigned>> &ref) : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override {
+    return false;
+  }
+  bool Null(handler_base **h) override {
+    *h = parent_;
+    ref_.opt.reset();
+    return true;
+  }
+  bool Int(int num, handler_base **h) override {
+    return false;
+  }
+  bool Uint(unsigned num, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<unsigned>{});
+    ref_.opt.value().u = num;
+    return true;
+  }
+  bool Int64(int64_t num, handler_base **h) override {
+    return false;
+  }
+  bool Uint64(uint64_t num, handler_base **h) override {
+    return false;
+  }
+  bool String(std::string_view str, handler_base **h) override { return false; }
+  bool StartObject(handler_base **h) override { return false; }
+  bool EndObject(handler_base **h) override { return false; }
+};
+
+template<>
+struct complete_handler<nullable<int64_t>> : public handler_base {
+  handler_base *parent_{nullptr};
+  value<nullable<int64_t>> &ref_;
+
+  explicit complete_handler(value<nullable<int64_t>> &ref) : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override {
+    return false;
+  }
+  bool Null(handler_base **h) override {
+    *h = parent_;
+    return true;
+  }
+  bool Int(int num, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<int64_t>{});
+    ref_.opt.value().i64 = num;
+    return true;
+  }
+  bool Uint(unsigned num, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<int64_t>{});
+    ref_.opt.value().i64 = num;
+    return true;
+  }
+  bool Int64(int64_t num, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<int64_t>{});
+    ref_.opt.value().i64 = num;
+    return true;
+  }
+  bool Uint64(uint64_t num, handler_base **h) override {
+    if (num <= INT64_MAX) {
+      *h = parent_;
+      ref_.opt.emplace(value<int64_t>{});
+      ref_.opt.value().i64 = num;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  bool String(std::string_view str, handler_base **h) override { return false; }
+  bool StartObject(handler_base **h) override { return false; }
+  bool EndObject(handler_base **h) override { return false; }
+};
+
+template<>
+struct complete_handler<nullable<int>> : public handler_base {
+  handler_base *parent_{nullptr};
+  value<nullable<int>> &ref_;
+
+  explicit complete_handler(value<nullable<int>> &ref) : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override {
+    return false;
+  }
+  bool Null(handler_base **h) override {
+    *h = parent_;
+    return true;
+  }
+  bool Int(int num, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<int>{});
+    ref_.opt.value().i = num;
+    return true;
+  }
+  bool Uint(unsigned num, handler_base **h) override {
+    if (num <= INT_MAX) {
+      *h = parent_;
+      ref_.opt.emplace(value<int>{});
+      ref_.opt.value().i = (int) num;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  bool Int64(int64_t num, handler_base **h) override {
+    return false;
+  }
+  bool Uint64(uint64_t num, handler_base **h) override {
+    return false;
+  }
+  bool String(std::string_view str, handler_base **h) override { return false; }
+  bool StartObject(handler_base **h) override { return false; }
+  bool EndObject(handler_base **h) override { return false; }
+};
+
+template<>
+struct complete_handler<nullable<std::string>> : public handler_base {
+  handler_base *parent_{nullptr};
+  value<nullable<std::string>> &ref_;
+
+  explicit complete_handler(value<nullable<std::string>> &ref) : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override {
+    return false;
+  }
+  bool Null(handler_base **h) override {
+    *h = parent_;
+    return true;
+  }
+  bool Int(int num, handler_base **h) override { return false; }
+  bool Uint(unsigned num, handler_base **h) override { return false; }
+  bool Int64(int64_t num, handler_base **h) override { return false; }
+  bool Uint64(uint64_t num, handler_base **h) override { return false; }
+  bool String(std::string_view str, handler_base **h) override {
+    *h = parent_;
+    ref_.opt.emplace(value<std::string>{});
+    ref_.opt.value().str = str;
+    return true;
+  }
+  bool StartObject(handler_base **h) override { return false; }
+  bool EndObject(handler_base **h) override { return false; }
 };
 
 template<class SCHEMA>
@@ -364,9 +642,6 @@ struct handler :
     h_ = &inner_;
   }
 
-  bool Null() {
-    return false;
-  }
   bool Bool(bool b) {
     return false;
   }
@@ -385,6 +660,9 @@ struct handler :
 
   bool Key(const char *str, rapidjson::SizeType length, bool copy) {
     return h_->Key(std::string_view(str, length), &h_);
+  }
+  bool Null() {
+    return h_->Null(&h_);
   }
   bool Int(int i) {
     return h_->Int(i, &h_);
@@ -418,6 +696,9 @@ using field = ctrj_detail::field<K, V>;
 
 template<class ... FIELDS>
 using object = ctrj_detail::object<FIELDS ...>;
+
+template<class T>
+using nullable = ctrj_detail::nullable<T>;
 
 template<class SCHEMA>
 using handler = ctrj_detail::handler<SCHEMA>;

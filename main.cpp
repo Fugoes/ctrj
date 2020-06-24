@@ -13,13 +13,17 @@ const char _text[] = "text";
 
 using js_obj_schema = ctrj::object<
     ctrj::field<_id, uint64_t>,
-    ctrj::field<_content, ctrj::object<
+    ctrj::field<_content, ctrj::nullable<ctrj::object<
         ctrj::field<_id, uint64_t>,
         ctrj::field<_uid, unsigned>,
         ctrj::field<_xid, int64_t>,
         ctrj::field<_iid, int>,
         ctrj::field<_text, std::string>
-    >>
+    >>>
+>;
+
+using x_schema = ctrj::nullable<
+    uint64_t
 >;
 
 int main() {
@@ -27,6 +31,7 @@ int main() {
   {
     ctrj::value<js_obj_schema> js_obj{};
     ctrj::handler<js_obj_schema> handler{js_obj};
+
     rapidjson::Reader reader{};
     rapidjson::StringStream ss{
         R"(
@@ -45,15 +50,17 @@ int main() {
     reader.Parse(ss, handler);
     if (reader.HasParseError()) {
       std::cout << "ERROR" << std::endl;
+    } else {
+      std::cout << js_obj.get<_id>().u64 << std::endl;
+      if (js_obj.get<_content>().opt.has_value()) {
+        auto x = js_obj.get<_content>().opt.value();
+        std::cout << x.get<_id>().u64 << std::endl;
+        std::cout << x.get<_uid>().u << std::endl;
+        std::cout << x.get<_xid>().i64 << std::endl;
+        std::cout << x.get<_iid>().i << std::endl;
+        std::cout << x.get<_text>().str << std::endl;
+      }
     }
-    std::cout << reader.GetParseErrorCode() << std::endl;
-    std::cout << reader.HasParseError() << std::endl;
-    std::cout << js_obj.get<_id>().u64 << std::endl;
-    std::cout << js_obj.get<_content>().get<_id>().u64 << std::endl;
-    std::cout << js_obj.get<_content>().get<_uid>().u << std::endl;
-    std::cout << js_obj.get<_content>().get<_text>().str << std::endl;
-    std::cout << js_obj.get<_content>().get<_xid>().i64 << std::endl;
-    std::cout << js_obj.get<_content>().get<_iid>().i << std::endl;
   }
 
   return 0;
