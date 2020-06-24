@@ -1,42 +1,46 @@
 #include <iostream>
-#include "include/ctrj.hpp"
 
-namespace x = ctrj::ctrj_detail;
+#include "include/ctrj.hpp"
 
 namespace {
 const char _id[] = "id";
 const char _text[] = "text";
 }
 
-using js_obj_schema = x::object<
-    x::field<_id, uint64_t>,
-    x::field<_text, x::object<
-        x::field<_id, uint64_t>,
-        x::field<_text, uint64_t>
+using js_obj_schema = ctrj::object<
+    ctrj::field<_id, uint64_t>,
+    ctrj::field<_text, ctrj::object<
+        ctrj::field<_id, uint64_t>,
+        ctrj::field<_text, uint64_t>
     >>
 >;
 
 int main() {
-  x::value<js_obj_schema> js_obj{};
-  x::complete_handler<js_obj_schema> handler{};
-  std::cout << sizeof(handler) << std::endl;
-  x::handler_base *h{&handler};
 
-  bool flag;
-  x::handler_base *t{nullptr};
+  {
+    ctrj::value<js_obj_schema> js_obj{};
+    ctrj::handler<js_obj_schema> handler{js_obj};
+    rapidjson::Reader reader{};
+    rapidjson::StringStream ss{
+        R"( { "id": 1, "text": { "id": 2, "text": 3} } )"
+    };
+    reader.Parse<rapidjson::kParseNumbersAsStringsFlag>(ss, handler);
+    assert(!reader.HasParseError());
+    std::cout << js_obj.get<_id>().uint64 << std::endl;
+    std::cout << js_obj.get<_text>().get<_id>().uint64 << std::endl;
+    std::cout << js_obj.get<_text>().get<_text>().uint64 << std::endl;
+  }
 
-  if (!h->StartObject(&h)) return 0;
-  if (!h->Key("id", &h)) return 0;
-  if (!h->Number("123", &h)) return 0;
-  if (!h->Key("text", &h)) return 0;
-  if (!h->StartObject(&h)) return 0;
-  if (!h->Key("text", &h)) return 0;
-  if (!h->Number("128", &h)) return 0;
-  if (!h->Key("id", &h)) return 0;
-  if (!h->Number("128", &h)) return 0;
-  if (!h->EndObject(&h)) return 0;
-
-  std::cout << "SUCC" << std::endl;
+  {
+    ctrj::value<js_obj_schema> js_obj{};
+    ctrj::handler<js_obj_schema> handler{js_obj};
+    rapidjson::Reader reader{};
+    rapidjson::StringStream ss{
+        R"( { "id": 1, "txt": { "id": 2, "text": 3} } )"
+    };
+    reader.Parse<rapidjson::kParseNumbersAsStringsFlag>(ss, handler);
+    assert(reader.HasParseError());
+  }
 
   return 0;
 }
