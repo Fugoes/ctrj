@@ -13,7 +13,7 @@ const char _next[] = "next";
 }
 
 using js_obj_schema = ctrj::object<
-    ctrj::field<_id, uint64_t>,
+    ctrj::field<_id, ctrj::nullable<uint64_t>>,
     ctrj::field<_content, ctrj::nullable<ctrj::object<
         ctrj::field<_id, uint64_t>,
         ctrj::field<_uid, unsigned>,
@@ -62,7 +62,7 @@ int main() {
     rapidjson::StringStream ss{
         R"(
           {
-            "id": 1,
+            "id": null,
             "content": {
               "id": 12,
               "text": "Hello World",
