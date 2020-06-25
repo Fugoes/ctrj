@@ -5,6 +5,7 @@
 #include <climits>
 #include <string>
 #include <optional>
+#include <vector>
 
 #include "rapidjson/reader.h"
 #include "rapidjson/writer.h"
@@ -21,6 +22,9 @@ struct object {};
 
 template<class T>
 struct nullable {};
+
+template<class T>
+struct array {};
 
 /* Value type */
 template<class SCHEMA>
@@ -90,6 +94,11 @@ struct value<nullable<T>> {
   std::optional<value<T>> opt{};
 };
 
+template<class T>
+struct value<array<T>> {
+  std::vector<value<T>> vec{};
+};
+
 /* Handler */
 struct handler_base {
   virtual bool Key(std::string_view str, handler_base **h) = 0;
@@ -101,6 +110,8 @@ struct handler_base {
   virtual bool String(std::string_view str, handler_base **h) = 0;
   virtual bool StartObject(handler_base **h) = 0;
   virtual bool EndObject(handler_base **h) = 0;
+  virtual bool StartArray(handler_base **h) = 0;
+  virtual bool EndArray(handler_base **h) = 0;
 };
 
 template<class ... FIELDS>
@@ -155,6 +166,8 @@ struct complete_handler<uint64_t> : public handler_base {
   bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
+  bool StartArray(handler_base **h) override { return false; }
+  bool EndArray(handler_base **h) override { return false; }
 };
 
 template<>
@@ -187,6 +200,8 @@ struct complete_handler<unsigned> : public handler_base {
   bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
+  bool StartArray(handler_base **h) override { return false; }
+  bool EndArray(handler_base **h) override { return false; }
 };
 
 template<>
@@ -229,6 +244,8 @@ struct complete_handler<int64_t> : public handler_base {
   bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
+  bool StartArray(handler_base **h) override { return false; }
+  bool EndArray(handler_base **h) override { return false; }
 };
 
 template<>
@@ -267,6 +284,8 @@ struct complete_handler<int> : public handler_base {
   bool String(std::string_view str, handler_base **h) override { return false; }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
+  bool StartArray(handler_base **h) override { return false; }
+  bool EndArray(handler_base **h) override { return false; }
 };
 
 template<>
@@ -293,6 +312,8 @@ struct complete_handler<std::string> : public handler_base {
   }
   bool StartObject(handler_base **h) override { return false; }
   bool EndObject(handler_base **h) override { return false; }
+  bool StartArray(handler_base **h) override { return false; }
+  bool EndArray(handler_base **h) override { return false; }
 };
 
 template<class ... FIELDS>
@@ -345,6 +366,8 @@ struct complete_handler<object<FIELDS ...>> : public handler_base {
       return false;
     }
   }
+  bool StartArray(handler_base **h) override { return false; }
+  bool EndArray(handler_base **h) override { return false; }
 };
 
 template<const char *K, class V, class ... FIELDS>
@@ -396,11 +419,7 @@ struct complete_handler<nullable<T>> : public handler_base {
   explicit complete_handler(value<nullable<T>> &ref) : ref_(ref) {}
 
   bool Key(std::string_view str, handler_base **h) override {
-    ref_.opt.emplace(value<T>{});
-    inner_.emplace(complete_handler<T>{ref_.opt.value()});
-    inner_.value().parent_ = parent_;
-    *h = &inner_.value();
-    return (*h)->Key(str, h);
+    return false;
   }
   bool Null(handler_base **h) override {
     *h = parent_;
@@ -452,6 +471,103 @@ struct complete_handler<nullable<T>> : public handler_base {
   bool EndObject(handler_base **h) override {
     return false;
   }
+  bool StartArray(handler_base **h) override {
+    ref_.opt.emplace(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.opt.value()});
+    inner_.value().parent_ = parent_;
+    *h = &inner_.value();
+    return (*h)->StartArray(h);
+  }
+  bool EndArray(handler_base **h) override {
+    return false;
+  }
+};
+
+template<class T>
+struct complete_handler<array<T>> : public handler_base {
+  handler_base *parent_{nullptr};
+  value<array<T>> &ref_;
+  std::optional<complete_handler<T>> inner_{};
+  uint8_t state_{0};
+
+  explicit complete_handler(value<array<T>> &ref) : ref_(ref) {}
+
+  bool Key(std::string_view str, handler_base **h) override {
+    return false;
+  }
+  bool Null(handler_base **h) override {
+    ref_.vec.push_back(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+    inner_.value().parent_ = this;
+    *h = &inner_.value();
+    return (*h)->Null(h);
+  }
+  bool Int(int num, handler_base **h) override {
+    ref_.vec.push_back(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+    inner_.value().parent_ = this;
+    *h = &inner_.value();
+    return (*h)->Int(num, h);
+  }
+  bool Uint(unsigned int num, handler_base **h) override {
+    ref_.vec.push_back(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+    inner_.value().parent_ = this;
+    *h = &inner_.value();
+    return (*h)->Uint(num, h);
+  }
+  bool Int64(int64_t num, handler_base **h) override {
+    ref_.vec.push_back(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+    inner_.value().parent_ = this;
+    *h = &inner_.value();
+    return (*h)->Int64(num, h);
+  }
+  bool Uint64(uint64_t num, handler_base **h) override {
+    ref_.vec.push_back(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+    inner_.value().parent_ = this;
+    *h = &inner_.value();
+    return (*h)->Uint64(num, h);
+  }
+  bool String(std::string_view str, handler_base **h) override {
+    ref_.vec.push_back(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+    inner_.value().parent_ = this;
+    *h = &inner_.value();
+    return (*h)->String(str, h);
+  }
+  bool StartObject(handler_base **h) override {
+    ref_.vec.push_back(value<T>{});
+    inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+    inner_.value().parent_ = this;
+    *h = &inner_.value();
+    return (*h)->StartObject(h);
+  }
+  bool EndObject(handler_base **h) override {
+    return false;
+  }
+  bool StartArray(handler_base **h) override {
+    if (state_ == 0) {
+      state_ = 1;
+      ref_.vec.clear();
+      return true;
+    } else {
+      ref_.vec.push_back(value<T>{});
+      inner_.emplace(complete_handler<T>{ref_.vec[ref_.vec.size() - 1]});
+      inner_.value().parent_ = this;
+      *h = &inner_.value();
+      return (*h)->StartArray(h);
+    }
+  }
+  bool EndArray(handler_base **h) override {
+    if (state_ == 1) {
+      *h = parent_;
+      return true;
+    } else {
+      return false;
+    }
+  }
 };
 
 template<class SCHEMA>
@@ -465,19 +581,13 @@ struct handler :
     h_ = &inner_;
   }
 
+  bool RawNumber(const char *str, rapidjson::SizeType length, bool copy) {
+    return false;
+  }
   bool Bool(bool b) {
     return false;
   }
   bool Double(double d) {
-    return false;
-  }
-  bool StartArray() {
-    return false;
-  }
-  bool EndArray(rapidjson::SizeType elementCount) {
-    return false;
-  }
-  bool RawNumber(const char *str, rapidjson::SizeType length, bool copy) {
     return false;
   }
 
@@ -507,6 +617,12 @@ struct handler :
   }
   bool EndObject(rapidjson::SizeType memberCount) {
     return h_->EndObject(&h_);
+  }
+  bool StartArray() {
+    return h_->StartArray(&h_);
+  }
+  bool EndArray(rapidjson::SizeType elementCount) {
+    return h_->EndArray(&h_);
   }
 };
 
@@ -659,6 +775,23 @@ struct write<nullable<T>> {
   }
 };
 
+template<class T>
+struct write<array<T>> {
+  template<class OutputStream,
+      class SourceEncoding = rapidjson::UTF8<>,
+      class TargetEncoding = rapidjson::UTF8<>,
+      class StackAllocator = rapidjson::CrtAllocator,
+      unsigned writeFlags = rapidjson::kWriteDefaultFlags>
+  inline static void to(
+      value<array<T>> &v,
+      rapidjson::Writer<OutputStream, SourceEncoding, TargetEncoding,
+                        StackAllocator, writeFlags> &w) {
+    w.StartArray();
+    for (auto &x : v.vec) write<T>::to(x, w);
+    w.EndArray();
+  }
+};
+
 }
 
 namespace ctrj {
@@ -671,6 +804,9 @@ using object = ctrj_detail::object<FIELDS ...>;
 
 template<class T>
 using nullable = ctrj_detail::nullable<T>;
+
+template<class T>
+using array = ctrj_detail::array<T>;
 
 template<class SCHEMA>
 using handler = ctrj_detail::handler<SCHEMA>;
