@@ -73,82 +73,31 @@ void reader_state::pop_frame() { stk_.pop_back(); }
 template <> struct reader_handler<u64> {
   inline static void init(reader_state *p) {}
 
-  static bool handler(reader_state *p, reader_event event) {
-    auto x = static_cast<val<u64> *>(p->stk_[p->stk_.size() - 1].ref_);
-    if (event == reader_event::U64) {
-      x->u64 = p->data_.u64_;
-      p->pop_frame();
-      return true;
-    } else {
-      return false;
-    }
-  }
+  static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<i64> {
   inline static void init(reader_state *p) {}
 
-  static bool handler(reader_state *p, reader_event event) {
-    auto x = static_cast<val<i64> *>(p->stk_[p->stk_.size() - 1].ref_);
-    if (event == reader_event::U64) {
-      if (p->data_.u64_ > INT64_MAX)
-        return false;
-      x->i64 = p->data_.u64_;
-      p->pop_frame();
-      return true;
-    } else if (event == reader_event::I64) {
-      x->i64 = p->data_.i64_;
-      p->pop_frame();
-      return true;
-    } else {
-      return false;
-    }
-  }
+  static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<f64> {
   inline static void init(reader_state *p) {}
 
-  static bool handler(reader_state *p, reader_event event) {
-    auto x = static_cast<val<f64> *>(p->stk_[p->stk_.size() - 1].ref_);
-    if (event == reader_event::F64) {
-      x->f64 = p->data_.f64_;
-      p->pop_frame();
-      return true;
-    } else {
-      return false;
-    }
-  }
+  static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<str> {
   inline static void init(reader_state *p) {}
 
-  static bool handler(reader_state *p, reader_event event) {
-    auto x = static_cast<val<str> *>(p->stk_[p->stk_.size() - 1].ref_);
-    if (event == reader_event::String) {
-      x->str = p->data_.str_;
-      p->pop_frame();
-      return true;
-    } else {
-      return false;
-    }
-  }
+  static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<bol> {
   inline static void init(reader_state *p) {}
 
-  static bool handler(reader_state *p, reader_event event) {
-    auto x = static_cast<val<bol> *>(p->stk_[p->stk_.size() - 1].ref_);
-    if (event == reader_event::Bool) {
-      x->bol = p->data_.bol_;
-      p->pop_frame();
-      return true;
-    } else {
-      return false;
-    }
-  }
+  static bool handler(reader_state *p, reader_event event);
 };
 
 template <typename T> struct reader_handler<nul<T>> {
@@ -321,5 +270,9 @@ template <typename SCHEMA, template <typename...> typename B, typename... ARGS>
 using reader = detail::reader<SCHEMA, B, ARGS...>;
 
 } // namespace ctrj
+
+#ifdef CTRJ_HEADER_ONLY
+#include "reader.cpp"
+#endif
 
 #endif // CTRJ_READER_HPP

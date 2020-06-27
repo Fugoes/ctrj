@@ -1,8 +1,8 @@
 #include <iostream>
 
-#include "../include/ctrj/value.hpp"
-#include "../include/ctrj/reader.hpp"
-#include "../include/ctrj/writer.hpp"
+#include "../ctrj/value.hpp"
+#include "../ctrj/reader.hpp"
+#include "../ctrj/writer.hpp"
 
 #include "rapidjson/reader.h"
 #include "rapidjson/writer.h"
