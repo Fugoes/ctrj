@@ -8,8 +8,6 @@
 #include "rapidjson/reader.h"
 #include "rapidjson/stringbuffer.h"
 
-int N = 10000;
-
 namespace {
 
 const char __id[] = "_id";
@@ -67,7 +65,9 @@ int main(int argc, char *argv[]) {
       ctrj::fld<_favoriteFruit, ctrj::str>
   >>;
 
-  std::ifstream is{std::string(argv[1])};
+  int N = std::stoi(argv[1]);
+
+  std::ifstream is{std::string(argv[2])};
   std::string content{};
   content.assign(std::istreambuf_iterator<char>(is),
                  std::istreambuf_iterator<char>());
@@ -84,11 +84,10 @@ int main(int argc, char *argv[]) {
     if (reader.HasParseError()) std::cout << "ERROR" << std::endl;
   }
   auto end = std::chrono::high_resolution_clock::now();
-  auto d = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-  std::cout << d.count() / N << " ns/OP" << std::endl;
-  std::cout
-      << content.length() * N * 1000000000 / 1024 / 1024 / d.count()
-      << std::endl;
+  std::chrono::duration<double> elapsed = end - start;
+  std::cout << elapsed.count() / N << " s/OP" << std::endl;
+  std::cout << (double) (content.length() * N) / elapsed.count() / 1024 / 1024
+            << std::endl;
 
   return 0;
 }

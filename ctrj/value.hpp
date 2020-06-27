@@ -11,7 +11,7 @@ namespace ctrj {
 
 namespace detail {
 
-template <class SCHEMA> struct val;
+template <typename SCHEMA> struct val;
 
 template <> struct val<i64> { int64_t i64{}; };
 

@@ -43,68 +43,100 @@ struct reader_stk_frame {
 
 struct reader_state {
   reader_data data_;
-  std::vector<reader_stk_frame> stk_{};
-  std::vector<bool> bitset_{};
+  reader_stk_frame *stk_top_;
+  uint8_t *bit_stk_top_;
 
-  template <typename T> inline void push_frame(val<T> *ref);
+  template <typename T> inline void stk_push(val<T> *ref);
 
-  template <typename T> inline void replace_frame(val<T> *ref);
+  template <typename T> inline void stk_replace(val<T> *ref);
+
+  template <typename T> inline val<T> *stk_peek_ref();
+
+  inline reader_handler_t stk_peek_handle();
 
   inline void pop_frame();
 };
 
 template <typename T> struct reader_handler;
 
-template <typename T> void reader_state::push_frame(val<T> *ref) {
+template <typename T> inline void reader_state::stk_push(val<T> *ref) {
   auto handler = reader_handler<T>::handler;
-  stk_.push_back(reader_stk_frame{handler, static_cast<void *>(ref)});
+  stk_top_++;
+  stk_top_->handler_ = handler;
+  stk_top_->ref_ = static_cast<void *>(ref);
   reader_handler<T>::init(this);
 }
 
-template <typename T> void reader_state::replace_frame(val<T> *ref) {
+template <typename T> inline void reader_state::stk_replace(val<T> *ref) {
   auto handler = reader_handler<T>::handler;
-  stk_[stk_.size() - 1].handler_ = handler;
-  stk_[stk_.size() - 1].ref_ = static_cast<void *>(ref);
+  stk_top_->handler_ = handler;
+  stk_top_->ref_ = static_cast<void *>(ref);
   reader_handler<T>::init(this);
 }
 
-void reader_state::pop_frame() { stk_.pop_back(); }
+inline void reader_state::pop_frame() { stk_top_--; }
+
+template <typename T> inline val<T> *reader_state::stk_peek_ref() {
+  return static_cast<val<T> *>(stk_top_->ref_);
+}
+
+inline reader_handler_t reader_state::stk_peek_handle() {
+  return stk_top_->handler_;
+}
 
 template <> struct reader_handler<u64> {
+  const static size_t stk_size = 1;
+  const static size_t bit_stk_size = 0;
+
   inline static void init(reader_state *p) {}
 
   static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<i64> {
+  const static size_t stk_size = 1;
+  const static size_t bit_stk_size = 0;
+
   inline static void init(reader_state *p) {}
 
   static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<f64> {
+  const static size_t stk_size = 1;
+  const static size_t bit_stk_size = 0;
+
   inline static void init(reader_state *p) {}
 
   static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<str> {
+  const static size_t stk_size = 1;
+  const static size_t bit_stk_size = 0;
+
   inline static void init(reader_state *p) {}
 
   static bool handler(reader_state *p, reader_event event);
 };
 
 template <> struct reader_handler<bol> {
+  const static size_t stk_size = 1;
+  const static size_t bit_stk_size = 0;
+
   inline static void init(reader_state *p) {}
 
   static bool handler(reader_state *p, reader_event event);
 };
 
 template <typename T> struct reader_handler<nul<T>> {
+  const static size_t stk_size = reader_handler<T>::stk_size;
+  const static size_t bit_stk_size = 0;
+
   inline static void init(reader_state *p) {}
 
   static bool handler(reader_state *p, reader_event event) {
-    auto x = static_cast<val<nul<T>> *>(p->stk_[p->stk_.size() - 1].ref_);
+    auto x = p->stk_peek_ref<nul<T>>();
     if (event == reader_event::Null) {
       x->opt.reset();
       p->pop_frame();
@@ -112,8 +144,8 @@ template <typename T> struct reader_handler<nul<T>> {
     } else {
       x->opt.emplace(val<T>{});
       auto ref = static_cast<val<T> *>(&x->opt.value());
-      p->replace_frame(ref);
-      return p->stk_[p->stk_.size() - 1].handler_(p, event);
+      p->stk_replace(ref);
+      return p->stk_top_->handler_(p, event);
     }
   }
 };
@@ -121,27 +153,35 @@ template <typename T> struct reader_handler<nul<T>> {
 template <typename R, typename FLD_LIST> struct partial_reader_handler;
 
 template <typename R> struct partial_reader_handler<R, fld_list<>> {
-  inline static bool handle_key(reader_state *p, size_t n) { return false; }
+  const static size_t stk_size = 0;
+  const static size_t bit_stk_size = 0;
+
+  template <size_t D> inline static bool handle_key(reader_state *p) {
+    return false;
+  }
 };
 
 template <typename R, const char *K, typename T, typename... FLDS>
 struct partial_reader_handler<R, fld_list<fld<K, T>, FLDS...>>
     : public partial_reader_handler<R, fld_list<FLDS...>> {
+  const static size_t stk_size =
+      std::max(reader_handler<T>::stk_size,
+               partial_reader_handler<R, fld_list<FLDS...>>::stk_size);
+  const static size_t bit_stk_size =
+      std::max(reader_handler<T>::bit_stk_size,
+               partial_reader_handler<R, fld_list<FLDS...>>::bit_stk_size);
+
   using RFLDS = partial_reader_handler<R, fld_list<FLDS...>>;
 
-  inline static bool handle_key(reader_state *p, size_t n) {
-    if (!p->bitset_[p->bitset_.size() - 1 - n]) {
-      if (p->data_.key_ == K) {
-        p->bitset_[p->bitset_.size() - 1 - n] = true;
-        auto x = static_cast<val<R> *>(p->stk_[p->stk_.size() - 1].ref_);
-        auto y = static_cast<val<T> *>(&x->template get<K>());
-        p->push_frame(y);
-        return true;
-      } else {
-        return RFLDS::handle_key(p, n + 1);
-      }
+  template <size_t D> inline static bool handle_key(reader_state *p) {
+    if (*(p->bit_stk_top_ - D) == 1 || p->data_.key_ != K) {
+      return RFLDS::template handle_key<D + 1>(p);
     } else {
-      return RFLDS::handle_key(p, n + 1);
+      auto x = p->stk_peek_ref<R>();
+      *(p->bit_stk_top_ - D) = 1;
+      auto ref = static_cast<val<T> *>(&x->template get<K>());
+      p->stk_push(ref);
+      return true;
     }
   }
 };
@@ -150,22 +190,29 @@ template <typename... FLDS> struct reader_handler<obj<FLDS...>> {
   using R = obj<FLDS...>;
   using N = fld_list_len<fld_list<FLDS...>>;
 
+  const static size_t stk_size =
+      partial_reader_handler<R, fld_list<FLDS...>>::stk_size + 1;
+  const static size_t bit_stk_size =
+      partial_reader_handler<R, fld_list<FLDS...>>::bit_stk_size + N::value;
+
   inline static void init(reader_state *p) {
-    for (size_t i = 0; i < N::value; i++)
-      p->bitset_.push_back(false);
+    for (size_t i = 0; i < N::value; i++) {
+      p->bit_stk_top_++;
+      *(p->bit_stk_top_) = 0;
+    }
   }
 
   static bool handler(reader_state *p, reader_event event) {
     if (event == reader_event::Key) {
-      return partial_reader_handler<R, fld_list<FLDS...>>::handle_key(p, 0);
+      return partial_reader_handler<R, fld_list<FLDS...>>::template handle_key<
+          0>(p);
     } else if (event == reader_event::StartObject) {
       return true;
     } else if (event == reader_event::EndObject) {
       for (size_t i = 0; i < N::value; i++) {
-        bool flag = p->bitset_.back();
-        if (!flag)
+        if (*(p->bit_stk_top_) == 0)
           return false;
-        p->bitset_.pop_back();
+        p->bit_stk_top_--;
       }
       p->pop_frame();
       return true;
@@ -176,13 +223,19 @@ template <typename... FLDS> struct reader_handler<obj<FLDS...>> {
 };
 
 template <typename T> struct reader_handler<arr<T>> {
-  inline static void init(reader_state *p) { p->bitset_.push_back(false); }
+  const static size_t stk_size = reader_handler<T>::stk_size + 1;
+  const static size_t bit_stk_size = reader_handler<T>::bit_stk_size + 1;
+
+  inline static void init(reader_state *p) {
+    p->bit_stk_top_++;
+    *(p->bit_stk_top_) = 0;
+  }
 
   static bool handler(reader_state *p, reader_event event) {
-    if (!p->bitset_[p->bitset_.size() - 1]) {
-      p->bitset_[p->bitset_.size() - 1] = true;
+    auto x = p->stk_peek_ref<arr<T>>();
+    if (*(p->bit_stk_top_) == 0) {
+      *(p->bit_stk_top_) = 1;
       if (event == reader_event::StartArray) {
-        auto x = static_cast<val<arr<T>> *>(p->stk_[p->stk_.size() - 1].ref_);
         x->vec.clear();
         return true;
       } else {
@@ -190,15 +243,14 @@ template <typename T> struct reader_handler<arr<T>> {
       }
     } else {
       if (event == reader_event::EndArray) {
-        p->bitset_.pop_back();
+        p->bit_stk_top_--;
         p->pop_frame();
         return true;
       } else {
-        auto x = static_cast<val<arr<T>> *>(p->stk_[p->stk_.size() - 1].ref_);
         x->vec.emplace_back(val<T>{});
         val<T> &y = x->vec[x->vec.size() - 1];
-        p->push_frame(&y);
-        return (p->stk_[p->stk_.size() - 1].handler_)(p, event);
+        p->stk_push(&y);
+        return p->stk_peek_handle()(p, event);
       }
     }
   }
@@ -207,13 +259,17 @@ template <typename T> struct reader_handler<arr<T>> {
 template <typename SCHEMA, template <typename...> typename B, typename... ARGS>
 class reader : public B<ARGS..., reader<SCHEMA, B, ARGS...>> {
   reader_state state_{};
+  reader_stk_frame stk_[reader_handler<SCHEMA>::stk_size];
+  uint8_t bit_stk_[reader_handler<SCHEMA>::bit_stk_size];
 
-  inline reader_handler_t get_handler() {
-    return state_.stk_[state_.stk_.size() - 1].handler_;
-  }
+  inline reader_handler_t get_handler() { return state_.stk_peek_handle(); }
 
 public:
-  explicit reader(val<SCHEMA> &ref) { state_.push_frame(&ref); }
+  explicit reader(val<SCHEMA> &ref) {
+    state_.stk_top_ = stk_ - 1;
+    state_.bit_stk_top_ = bit_stk_ - 1;
+    state_.stk_push(&ref);
+  }
 
   inline bool RawNumber(const char *, size_t, bool) { return false; }
 

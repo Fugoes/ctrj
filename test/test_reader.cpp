@@ -25,13 +25,15 @@ int main() {
   ctrj::val<js_schema> js{};
 
   rapidjson::StringStream
-      ss{R"({"x":null,"y":{"x":12},"z":{"x":[1,2,3],"y":11}})"};
+      ss{R"({"x":null,"y":{"x":12},"z":{"x":[1,2,3,{"y":1}],"y":11}}})"};
   rapidjson::Reader reader{};
   ctrj::reader<js_schema, rapidjson::BaseReaderHandler, rapidjson::UTF8<>>
       handler{js};
   reader.Parse(ss, handler);
   if (reader.HasParseError())
     std::cout << "ERROR" << std::endl;
+
+  std::cout << ctrj::detail::reader_handler<js_schema>::stk_size << std::endl;
 
   rapidjson::StringBuffer buf{};
   rapidjson::Writer w{buf};
