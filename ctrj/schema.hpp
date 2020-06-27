@@ -13,13 +13,15 @@ namespace ctrj {
 
 namespace detail {
 
-template <class... FLDS> struct obj {};
+template <typename... FLDS> struct obj {};
 
-template <const char *K, class T> struct fld {};
+template <const char *K, typename T> struct fld {};
 
-template <class T> struct nul {};
+template <typename T> struct nul {};
 
-template <class T> struct arr {};
+template <typename T> struct arr {};
+
+template <typename T> struct dyn_obj {};
 
 struct i64 {};
 
@@ -63,6 +65,8 @@ template <const char *K, class T> using fld = detail::fld<K, T>;
 template <class T> using nul = detail::nul<T>;
 
 template <class T> using arr = detail::arr<T>;
+
+template <class T> using dyn_obj = detail::dyn_obj<T>;
 
 using i64 = detail::i64;
 

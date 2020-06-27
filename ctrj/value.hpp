@@ -1,6 +1,7 @@
 #ifndef CTRJ_VALUE_HPP
 #define CTRJ_VALUE_HPP
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -44,6 +45,10 @@ template <typename... FLDS> struct val<obj<FLDS...>> {
     using rs = typename fld_list_drop_neq<K, fld_list<FLDS...>>::type;
     return static_cast<partial_val<rs> &>(_inner)._val;
   }
+};
+
+template <typename T> struct val<dyn_obj<T>> {
+  std::map<std::string, val<T>> flds{};
 };
 
 } // namespace detail

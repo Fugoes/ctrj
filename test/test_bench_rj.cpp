@@ -1,6 +1,6 @@
-#include <iostream>
-#include <fstream>
 #include <chrono>
+#include <fstream>
+#include <iostream>
 
 #include "rapidjson/document.h"
 
@@ -30,7 +30,7 @@ const char _id[] = "id";
 const char _greeting[] = "greeting";
 const char _favoriteFruit[] = "favoriteFruit";
 
-}
+} // namespace
 
 int main(int argc, char *argv[]) {
   int N = std::stoi(argv[1]);
@@ -45,12 +45,13 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < N; i++) {
     rapidjson::Document document{};
     document.Parse(content_c_str);
-    if (document.HasParseError()) std::cout << "ERROR" << std::endl;
+    if (document.HasParseError())
+      std::cout << "ERROR" << std::endl;
   }
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;
   std::cout << elapsed.count() / N << " s/OP" << std::endl;
-  std::cout << (double) (content.length() * N) / elapsed.count() / 1024 / 1024
+  std::cout << (double)(content.length() * N) / elapsed.count() / 1024 / 1024
             << std::endl;
 
   return 0;

@@ -109,6 +109,21 @@ template <typename... FLDS> struct write<obj<FLDS...>> {
   }
 };
 
+template <typename T> struct write<dyn_obj<T>> {
+  const val<dyn_obj<T>> &ref_;
+
+  inline explicit write(const val<dyn_obj<T>> &ref) : ref_(ref) {}
+
+  template <typename WRITER> inline void to(WRITER &w) {
+    w.StartObject();
+    for (auto const &kv : ref_.flds) {
+      w.Key(kv.first.data(), kv.first.length());
+      write<T>(kv.second).to(w);
+    }
+    w.EndObject();
+  }
+};
+
 } // namespace detail
 
 template <typename SCHEMA> using write = detail::write<SCHEMA>;

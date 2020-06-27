@@ -234,8 +234,8 @@ template <typename T> struct reader_handler<arr<T>> {
   static bool handler(reader_state *p, reader_event event) {
     auto x = p->stk_peek_ref<arr<T>>();
     if (*(p->bit_stk_top_) == 0) {
-      *(p->bit_stk_top_) = 1;
       if (event == reader_event::StartArray) {
+        *(p->bit_stk_top_) = 1;
         x->vec.clear();
         return true;
       } else {
@@ -252,6 +252,32 @@ template <typename T> struct reader_handler<arr<T>> {
         p->stk_push(&y);
         return p->stk_peek_handle()(p, event);
       }
+    }
+  }
+};
+
+template <typename T> struct reader_handler<dyn_obj<T>> {
+  const static size_t stk_size = reader_handler<T>::stk_size + 1;
+  const static size_t bit_stk_size = reader_handler<T>::bit_stk_size;
+
+  inline static void init(reader_state *p) {}
+
+  static bool handler(reader_state *p, reader_event event) {
+    auto x = p->stk_peek_ref<dyn_obj<T>>();
+    if (event == reader_event::StartObject) {
+      x->flds.clear();
+      return true;
+    } else if (event == reader_event::Key) {
+      std::string key{p->data_.key_};
+      x->flds[key] = val<T>{};
+      val<T> &y = x->flds[key];
+      p->stk_push(&y);
+      return true;
+    } else if (event == reader_event::EndObject) {
+      p->pop_frame();
+      return true;
+    } else {
+      return false;
     }
   }
 };
