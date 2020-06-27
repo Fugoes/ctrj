@@ -35,7 +35,6 @@ int main() {
   rapidjson::StringBuffer buf{};
   rapidjson::Writer w{buf};
   ctrj::write<js_schema>(js).to(w);
-
   std::cout << buf.GetString() << std::endl;
   return 0;
 }

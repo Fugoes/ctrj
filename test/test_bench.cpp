@@ -74,8 +74,8 @@ int main(int argc, char *argv[]) {
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;
   std::cout << elapsed.count() / N << " s/OP" << std::endl;
-  std::cout << (double)(content.length() * N) / elapsed.count() / 1024 / 1024
-            << std::endl;
+  std::cout << (double) (content.length() * N) / elapsed.count() / 1024 / 1024
+            << " MiB/s" << std::endl;
 
   return 0;
 }

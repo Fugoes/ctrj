@@ -353,7 +353,7 @@ using reader = detail::reader<SCHEMA, B, ARGS...>;
 
 } // namespace ctrj
 
-#ifdef CTRJ_HEADER_ONLY
+#ifndef CTRJ_NON_HEADER_ONLY
 #include "reader.cpp"
 #endif
 
