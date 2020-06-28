@@ -6,10 +6,8 @@ Many people out there have written compile time JSON libraries and bloat their o
 
 ## Overview
 
-* Header only.
-
-* Provide reader API & writer API based on RapidJSON's writer API & SAX reader API.
-
+- Header only.
+- Provide reader API & writer API based on RapidJSON's writer API & SAX reader API.
 - High performance. See benchmark session below.
 - Type safe. Access to JSON object's properties are type-checked at compile time.
 - Allocation free parser. When using the reader API, no allocation happens besides memory needed by the JSON object.

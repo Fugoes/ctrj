@@ -54,7 +54,7 @@ struct reader_state {
 
   inline reader_handler_t stk_peek_handle();
 
-  inline void pop_frame();
+  inline void stk_pop();
 };
 
 template <typename T> struct reader_handler;
@@ -74,7 +74,7 @@ template <typename T> inline void reader_state::stk_replace(val<T> *ref) {
   reader_handler<T>::init(this);
 }
 
-inline void reader_state::pop_frame() { stk_top_--; }
+inline void reader_state::stk_pop() { stk_top_--; }
 
 template <typename T> inline val<T> *reader_state::stk_peek_ref() {
   return static_cast<val<T> *>(stk_top_->ref_);
@@ -139,7 +139,7 @@ template <typename T> struct reader_handler<nul<T>> {
     auto x = p->stk_peek_ref<nul<T>>();
     if (event == reader_event::Null) {
       x->opt.reset();
-      p->pop_frame();
+      p->stk_pop();
       return true;
     } else {
       x->opt.emplace(val<T>{});
@@ -214,7 +214,7 @@ template <typename... FLDS> struct reader_handler<obj<FLDS...>> {
           return false;
         p->bit_stk_top_--;
       }
-      p->pop_frame();
+      p->stk_pop();
       return true;
     } else {
       return false;
@@ -244,7 +244,7 @@ template <typename T> struct reader_handler<arr<T>> {
     } else {
       if (event == reader_event::EndArray) {
         p->bit_stk_top_--;
-        p->pop_frame();
+        p->stk_pop();
         return true;
       } else {
         x->vec.emplace_back(val<T>{});
@@ -274,7 +274,7 @@ template <typename T> struct reader_handler<dyn_obj<T>> {
       p->stk_push(&y);
       return true;
     } else if (event == reader_event::EndObject) {
-      p->pop_frame();
+      p->stk_pop();
       return true;
     } else {
       return false;
