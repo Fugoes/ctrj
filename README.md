@@ -59,7 +59,7 @@ All supported schema elements are:
   - `ctrj::arr<T>` for array of type `T`,
   - `ctrj::nul<T>` for nullable type of type `T`,
   - `ctrj::obj<ctrj::fld<K0, T0>, ctrj::fld<K1, T1>, ..., ctrj::fld<Kn, Tn>>` for object with `K0` property of type `T0`, `K1` property of type `T1`, ..., `Kn` property of type `Tn`,
-  - `ctrj::dyn_obj<T>` for object with dynamic key values, and all these keys point to value of type `T`.
+  - `ctrj::dyn_obj<T>` for object with dynamic keys, and all these keys point to value of type `T`.
 
 ### Using JSON Objects
 
